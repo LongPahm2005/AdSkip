@@ -1,0 +1,110 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    name: Validate release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: youtube-ad-tools/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: youtube-ad-tools
+
+      - name: Check release and manifest versions
+        run: npm run check:version
+        working-directory: youtube-ad-tools
+
+      - name: Require the release tag to be on main
+        run: |
+          git fetch origin main
+          git merge-base --is-ancestor "$GITHUB_SHA" origin/main
+
+      - name: Lint
+        run: npm run lint
+        working-directory: youtube-ad-tools
+
+      - name: Run unit tests
+        run: npm run test:unit
+        working-directory: youtube-ad-tools
+
+      - name: Build production extension
+        run: npm run build
+        working-directory: youtube-ad-tools
+
+      - name: Validate packaged extension
+        run: npm run test:package
+        working-directory: youtube-ad-tools
+
+      - name: Create and verify release ZIP
+        shell: bash
+        working-directory: youtube-ad-tools
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          mkdir -p artifacts
+          (cd dist && zip -qr "../artifacts/youtube-ad-tools-v${version}.zip" .)
+          unzip -t "artifacts/youtube-ad-tools-v${version}.zip"
+
+      - name: Upload unpacked release build
+        uses: actions/upload-artifact@v4
+        with:
+          name: youtube-ad-tools-v${{ github.ref_name }}-unpacked
+          path: youtube-ad-tools/dist/
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload verified release ZIP
+        uses: actions/upload-artifact@v4
+        with:
+          name: youtube-ad-tools-${{ github.ref_name }}-zip
+          path: youtube-ad-tools/artifacts/youtube-ad-tools-${{ github.ref_name }}.zip
+          if-no-files-found: error
+          retention-days: 14
+
+  publish:
+    name: Publish GitHub Release
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download verified release ZIP
+        uses: actions/download-artifact@v4
+        with:
+          name: youtube-ad-tools-v${{ github.ref_name }}-zip
+          path: release-assets
+
+      - name: Check for an existing release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "$GITHUB_REF_NAME" --json tagName --jq .tagName >/dev/null 2>&1; then
+            echo "::error::A GitHub Release for $GITHUB_REF_NAME already exists; refusing to overwrite it."
+            exit 1
+          fi
+
+      - name: Publish release with ZIP
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" release-assets/youtube-ad-tools-"$GITHUB_REF_NAME".zip \
+            --title "YouTube Ad Tools $GITHUB_REF_NAME" \
+            --generate-notes
