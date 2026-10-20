@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - develop
   pull_request:
     branches:
       - main
@@ -59,6 +60,14 @@ jobs:
           mkdir -p artifacts
           (cd dist && zip -qr "../artifacts/youtube-ad-tools-v${version}.zip" .)
           unzip -t "artifacts/youtube-ad-tools-v${version}.zip"
+
+      - name: Verify extension ZIP contents
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        shell: bash
+        working-directory: youtube-ad-tools
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          npm run test:archive -- "artifacts/youtube-ad-tools-v${version}.zip" dist
 
       - name: Upload installable ZIP
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'

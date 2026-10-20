@@ -63,6 +63,10 @@ jobs:
           (cd dist && zip -qr "../artifacts/youtube-ad-tools-v${version}.zip" .)
           unzip -t "artifacts/youtube-ad-tools-v${version}.zip"
 
+      - name: Verify release ZIP contents
+        run: npm run test:archive -- "artifacts/youtube-ad-tools-${GITHUB_REF_NAME}.zip" dist
+        working-directory: youtube-ad-tools
+
       - name: Upload unpacked release build
         uses: actions/upload-artifact@v4
         with:
