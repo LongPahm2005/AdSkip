@@ -11,7 +11,12 @@ if (manifest.version !== packageJson.version) {
   )
 }
 
-const tag = process.env.GITHUB_REF_NAME
+const isTagRef = process.env.GITHUB_REF_TYPE === 'tag' ||
+  process.env.GITHUB_REF?.startsWith('refs/tags/')
+const tag = isTagRef
+  ? process.env.GITHUB_REF_NAME ?? process.env.GITHUB_REF?.slice('refs/tags/'.length)
+  : null
+
 if (tag && tag !== `v${packageJson.version}`) {
   throw new Error(
     `Release tag ${tag} does not match project version v${packageJson.version}.`,
