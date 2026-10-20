@@ -1,0 +1,41 @@
+{
+  "manifest_version": 3,
+  "name": "YouTube Ad Tools",
+  "version": "1.0.0",
+  "description": "Phát hiện quảng cáo YouTube, áp dụng quy tắc mạng hẹp và dùng nút bỏ qua chính thức khi khả dụng.",
+  "permissions": [
+    "activeTab",
+    "declarativeNetRequest",
+    "storage"
+  ],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "declarative_net_request": {
+    "rule_resources": [
+      {
+        "id": "youtube_ad_requests",
+        "enabled": false,
+        "path": "rules/youtube-advertising.json"
+      }
+    ]
+  },
+  "action": {
+    "default_title": "YouTube Ad Tools",
+    "default_popup": "index.html"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://youtube.com/*",
+        "https://www.youtube.com/*",
+        "https://m.youtube.com/*"
+      ],
+      "js": [
+        "content.js"
+      ],
+      "run_at": "document_start"
+    }
+  ]
+}
